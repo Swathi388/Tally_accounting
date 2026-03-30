@@ -1,0 +1,82 @@
+const { Company, User, Group, Ledger } = require('../../models');
+
+exports.createCompany = async (req, res) => {
+  try {
+    const { name, gstNumber, address, financialYearStart, booksBeginningFrom, userId } = req.body;
+    const company = await Company.create({
+      name,
+      gstNumber,
+      address,
+      financialYearStart,
+      booksBeginningFrom
+    });
+    
+    if (userId) {
+      const user = await User.findByPk(userId);
+      if (user) await company.addUser(user);
+    }
+    
+    res.status(201).json(company);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getCompanies = async (req, res) => {
+  try {
+    // Return all companies — for single-tenant setup, this always gives the seeded company
+    const companies = await Company.findAll({
+      order: [['createdAt', 'ASC']]
+    });
+    // Attach counts
+    const result = await Promise.all(companies.map(async (c) => ({
+      ...c.toJSON(),
+      groupCount: await Group.count({ where: { CompanyId: c.id } }),
+      ledgerCount: await Ledger.count({ where: { CompanyId: c.id } }),
+    })));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getCompanyById = async (req, res) => {
+  try {
+    const company = await Company.findByPk(req.params.id, {
+      include: [User]
+    });
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+
+    // Get counts
+    const groupCount = await Group.count({ where: { CompanyId: company.id } });
+    const ledgerCount = await Ledger.count({ where: { CompanyId: company.id } });
+
+    res.json({
+      ...company.toJSON(),
+      groupCount,
+      ledgerCount
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateCompany = async (req, res) => {
+  try {
+    const { name, gstNumber, address, features, financialYearStart, booksBeginningFrom } = req.body;
+    const company = await Company.findByPk(req.params.id);
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+
+    if (name) company.name = name;
+    if (gstNumber) company.gstNumber = gstNumber;
+    if (address) company.address = address;
+    if (financialYearStart) company.financialYearStart = financialYearStart;
+    if (booksBeginningFrom) company.booksBeginningFrom = booksBeginningFrom;
+    if (features) company.features = { ...company.features, ...features };
+
+    await company.save();
+    res.json(company);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

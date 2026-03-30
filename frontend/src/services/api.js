@@ -1,0 +1,107 @@
+import axios from 'axios';
+
+const API_BASE = 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_BASE,
+  headers: { 'Content-Type': 'application/json' }
+});
+
+// Attach JWT token to every request
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// ─── Auth ──────────────────────────────────────────
+export const register = (name, email, password) => api.post('/auth/register', { name, email, password });
+export const login = (email, password) => api.post('/auth/login', { email, password });
+
+export const authAPI = { register, login };
+
+// ─── Companies ─────────────────────────────────────
+export const companyAPI = {
+  create: (data) => api.post('/companies', data),
+  getAll: () => api.get('/companies'),
+  getById: (id) => api.get(`/companies/${id}`),
+  update: (id, data) => api.put(`/companies/${id}`, data),
+};
+
+// ─── Groups ────────────────────────────────────────
+export const groupAPI = {
+  create: (data) => api.post('/groups', data),
+  getByCompany: (companyId) => api.get(`/groups/${companyId}`),
+  seedStandard: (companyId) => api.post(`/groups/seed/${companyId}`),
+  resolveGroups: () => api.get('/groups/resolve'),
+  update: (id, data) => api.put(`/groups/${id}`, data),
+  delete: (id) => api.delete(`/groups/${id}`),
+};
+
+// ─── Ledgers ───────────────────────────────────────
+export const ledgerAPI = {
+  create: (data) => api.post('/ledgers', data),
+  getByCompany: (companyId) => api.get(`/ledgers/${companyId}`),
+  getBalance: (ledgerId) => api.get(`/ledgers/balance/${ledgerId}`),
+  getTransactions: (ledgerId) => api.get(`/ledgers/transactions/${ledgerId}`),
+  update: (id, data) => api.put(`/ledgers/${id}`, data),
+  delete: (id) => api.delete(`/ledgers/${id}`),
+};
+
+// ─── Vouchers ──────────────────────────────────────
+export const voucherAPI = {
+  create: (data) => api.post('/vouchers', data),
+  getByCompany: (companyId) => api.get(`/vouchers/${companyId}`),
+  getById: (id) => api.get(`/vouchers/detail/${id}`),
+  delete: (id) => api.delete(`/vouchers/${id}`),
+};
+
+// ─── Purchase Orders ───────────────────────────────
+export const purchaseAPI = {
+  getByCompany: (companyId) => api.get(`/purchase/${companyId}`),
+  create: (data) => api.post('/purchase', data),
+  update: (id, data) => api.put(`/purchase/${id}`, data),
+  delete: (id) => api.delete(`/purchase/${id}`),
+};
+
+// ─── Reports ───────────────────────────────────────
+export const reportsAPI = {
+  trialBalance: (companyId) => api.get(`/reports/trial-balance/${companyId}`),
+  profitLoss: (companyId) => api.get(`/reports/profit-loss/${companyId}`),
+  balanceSheet: (companyId) => api.get(`/reports/balance-sheet/${companyId}`),
+  daybook: (companyId, from, to) => api.get(`/reports/daybook/${companyId}`, { params: { from, to } }),
+  dashboard: (companyId) => api.get(`/reports/dashboard/${companyId}`),
+  ledgerStatement: (ledgerId, from, to) => api.get(`/reports/ledger-statement/${ledgerId}`, { params: { from, to } }),
+  auditTrail: (companyId) => api.get(`/reports/audit/${companyId}`),
+};
+
+// ─── Inventory ───────────────────────────────────────
+export const inventoryAPI = {
+  createItem: (data) => api.post('/inventory', data),
+  getByCompany: (companyId) => api.get(`/inventory/${companyId}`),
+  updateStock: (itemId, data) => api.post(`/inventory/stock/${itemId}`, data),
+};
+
+// ─── Bank Reconciliation ──────────────────────────────
+export const reconciliationAPI = {
+  importStatement: (data) => api.post('/reconciliation/import', data),
+  getUnmatched: (companyId) => api.get(`/reconciliation/unmatched/${companyId}`),
+  reconcile: (data) => api.post('/reconciliation/reconcile', data),
+};
+
+// ─── Sales & Orders ──────────────────────────────────
+export const salesAPI = {
+  createOrder: (data) => api.post('/sales/orders', data),
+  getOrders: (companyId) => api.get(`/sales/orders/${companyId}`),
+  updateOrder: (id, data) => api.put(`/sales/orders/${id}`, data),
+  createInvoice: (data) => api.post('/sales/invoices', data),
+};
+
+// ─── Accounting Utilities ──────────────────────────
+export const accountingAPI = {
+  calculateGST: (data) => api.post('/accounting/calculate-gst', data),
+  scanReceipt: (data) => api.post('/accounting/scan-receipt', data),
+};
+
+export default api;
+
