@@ -26,7 +26,7 @@ import ProfessionalInvoiceView from './modules/sales/ProfessionalInvoiceView';
 import PayrollView from './modules/payroll/PayrollView';
 
 // ── APIs ─────────────────────────────────────────────────────────
-import { reportsAPI, voucherAPI } from './services/api';
+import { companyAPI, reportsAPI, voucherAPI } from './services/api';
 
 // ── Icons ─────────────────────────────────────────────────────────
 import {
@@ -274,14 +274,35 @@ function AuthenticatedApp() {
   }, []);
 
   useEffect(() => {
-    if (!companyId) return;
-    Promise.allSettled([
-      reportsAPI.dashboard(companyId),
-      voucherAPI.getByCompany(companyId),
-    ]).then(([s, v]) => {
-      if (s.status === 'fulfilled') setStats(s.value.data);
-      if (v.status === 'fulfilled') setVouchers(Array.isArray(v.value.data) ? v.value.data.slice(0, 5) : []);
-    });
+    const fetchContext = async () => {
+      let currentId = companyId;
+      if (!currentId) {
+        try {
+          const res = await companyAPI.getAll();
+          if (res.data && res.data.length > 0) {
+            currentId = res.data[0].id;
+            localStorage.setItem('companyId', currentId);
+            // Refreshing the page to ensure all hooks see the new ID
+            window.location.reload();
+            return;
+          }
+        } catch (err) {
+          console.error("Failed to auto-resolve company:", err);
+        }
+      }
+
+      if (!currentId) return;
+
+      Promise.allSettled([
+        reportsAPI.dashboard(currentId),
+        voucherAPI.getByCompany(currentId),
+      ]).then(([s, v]) => {
+        if (s.status === 'fulfilled') setStats(s.value.data);
+        if (v.status === 'fulfilled') setVouchers(Array.isArray(v.value.data) ? v.value.data.slice(0, 5) : []);
+      });
+    };
+
+    fetchContext();
   }, [companyId]);
 
   const shell = (Component, props = {}) => (

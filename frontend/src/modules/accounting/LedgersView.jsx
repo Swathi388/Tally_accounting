@@ -116,6 +116,35 @@ const LedgersView = () => {
         setExpandedGroups(newSet);
     };
 
+    const openDrawerWithParent = (parentId) => {
+        const selectedGrp = flatGroupList.find(g => String(g.id) === String(parentId));
+        setFormData({ 
+            ...formData, 
+            parent_id: parentId,
+            nature: selectedGrp ? selectedGrp.nature : formData.nature,
+            type: 'Ledger'
+        });
+        setShowDrawer(true);
+    };
+
+    const handleDeleteLedger = async (e, id) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this ledger?")) return;
+        try {
+            await ledgerAPI.delete(id);
+            fetchData();
+        } catch (err) { alert("Delete failed: " + (err.response?.data?.error || err.message)); }
+    };
+
+    const handleDeleteGroup = async (e, id) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this group and its contents?")) return;
+        try {
+            await groupAPI.delete(id);
+            fetchData();
+        } catch (err) { alert("Delete failed: " + (err.response?.data?.error || err.message)); }
+    };
+
     const matchesSearch = (item) => {
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
@@ -198,36 +227,56 @@ const LedgersView = () => {
         return (
             <div key={`${type}-${node.id}`} className="select-none animate-fade-in text-sm border-b border-slate-100/50">
                 <div 
-                    onClick={(e) => isGroup && toggleGroup(e, node.id)}
-                    className={`flex items-center group py-2.5 transition-colors cursor-pointer
-                        ${isGroup ? 'hover:bg-slate-50' : 'hover:bg-blue-50/30'}`}
+                    onClick={(e) => {
+                        if (isGroup) {
+                            toggleGroup(e, node.id);
+                        } else {
+                            navigate(`/ledger-statement/${node.id}`);
+                        }
+                    }}
+                    className={`flex items-center group py-2.5 transition-all duration-200 cursor-pointer border-l-4
+                        ${isGroup 
+                            ? 'hover:bg-slate-50 border-transparent hover:border-blue-400' 
+                            : 'hover:bg-blue-50/50 border-transparent hover:border-indigo-400'}`}
                 >
                     {/* COL 1: NAME & HIERARCHY */}
                     <div className="flex-1 flex items-center gap-2" style={{ paddingLeft: `${paddingLeft}px` }}>
-                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                        <div className="w-6 h-6 flex items-center justify-center shrink-0">
                             {isGroup ? (
                                 hasChildren ? (
-                                    <button onClick={(e) => toggleGroup(e, node.id)} className="text-slate-400 hover:text-blue-600 transition-colors">
+                                    <button 
+                                        onClick={(e) => toggleGroup(e, node.id)} 
+                                        className="w-5 h-5 rounded hover:bg-slate-200 text-slate-400 hover:text-blue-600 transition-all flex items-center justify-center"
+                                    >
                                         {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                     </button>
                                 ) : (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); openDrawerWithParent(node.id); }}
+                                        title="Quick Add Ledger"
+                                        className="w-5 h-5 rounded hover:bg-blue-100/50 text-slate-300 hover:text-blue-600 transition-all flex items-center justify-center group/plus relative"
+                                    >
+                                        <ChevronRight size={14} className="group-hover/plus:opacity-0 transition-opacity" />
+                                        <Plus size={14} className="absolute opacity-0 group-hover/plus:opacity-100 transition-opacity" />
+                                    </button>
                                 )
                             ) : (
-                                <CornerDownRight size={12} className="text-slate-300" />
+                                <div className="w-5 h-5 flex items-center justify-center">
+                                    <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+                                </div>
                             )}
                         </div>
                         
                         {isGroup ? <Folder size={14} className="text-blue-500 shrink-0" /> : <FileText size={14} className="text-slate-400 shrink-0" />}
                         
-                        <span className={`truncate w-full pr-4 ${isGroup ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>
+                        <span className={`truncate w-full pr-4 tracking-tight ${isGroup ? 'font-bold text-slate-800' : 'font-medium text-slate-600 italic'}`}>
                             {highlightText(node.name, searchQuery)}
                         </span>
                     </div>
 
                     {/* COL 2: TYPE */}
                     <div className="w-40 shrink-0 flex items-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border
                             ${isGroup ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-transparent text-slate-400 border-transparent group-hover:border-slate-200'}`}>
                             {isGroup ? 'Group' : 'Ledger'}
                         </span>
@@ -235,52 +284,55 @@ const LedgersView = () => {
 
                     {/* COL 3: NATURE */}
                     <div className="w-40 shrink-0 flex items-center">
-                        {isGroup && (
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border
-                                ${node.nature?.toLowerCase() === 'assets' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                  node.nature?.toLowerCase() === 'liabilities' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                  node.nature?.toLowerCase() === 'income' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 
-                                  node.nature?.toLowerCase() === 'expenses' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                  'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                        {(isGroup || node.nature) && (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest border
+                                ${node.nature?.toLowerCase() === 'assets' ? 'bg-emerald-100/50 text-emerald-700 border-emerald-200' :
+                                  node.nature?.toLowerCase() === 'liabilities' ? 'bg-rose-100/50 text-rose-700 border-rose-200' :
+                                  node.nature?.toLowerCase() === 'income' ? 'bg-indigo-100/50 text-indigo-700 border-indigo-200' : 
+                                  node.nature?.toLowerCase() === 'expenses' ? 'bg-amber-100/50 text-amber-700 border-amber-200' :
+                                  'bg-slate-100 text-slate-500 border-slate-200'}`}>
                                 {node.nature || 'PRIMARY'}
                             </span>
                         )}
-                        {!isGroup && <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium">—</span>}
+                        {!isGroup && !node.nature && <span className="text-[10px] text-slate-300 uppercase tracking-widest font-bold">—</span>}
                     </div>
 
-                    {/* COL 4: BALANCE + VIEW STATEMENT */}
-                    <div className="w-56 shrink-0 pr-4 flex items-center justify-end gap-2">
-                        <span className={`${isGroup ? 'font-semibold text-slate-800' : 'font-medium text-slate-700'}`}>
+                    {/* COL 4: BALANCE + ACTIONS */}
+                    <div className="w-56 shrink-0 pr-4 flex items-center justify-end gap-3">
+                        <span className={`text-[13px] ${isGroup ? 'font-black text-slate-900 border-b border-slate-200' : 'font-bold text-slate-700'}`}>
                             {formatCurrency(getNodeBalance(node, isGroup))}
                         </span>
                         
-                        {/* View Statement button for ledgers */}
-                        {!isGroup && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/ledger-statement/${node.id}`); }}
-                            title="View Statement"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white text-[10px] font-black uppercase tracking-wider border border-indigo-100 hover:border-indigo-600 shrink-0"
-                          >
-                            <BookOpen size={10} /> Stmt
-                          </button>
-                        )}
-                        
-                        {/* Quick actions for groups */}
-                        {isGroup && (
-                          <div className="w-6 opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
-                              <button className="text-slate-400 hover:text-blue-600">
-                                  <MoreHorizontal size={14} />
-                              </button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            {!isGroup && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); navigate(`/ledger-statement/${node.id}`); }}
+                                    title="View Statement"
+                                    className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100"
+                                >
+                                    <BookOpen size={14} />
+                                </button>
+                            )}
+                            
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    isGroup ? handleDeleteGroup(e, node.id) : handleDeleteLedger(e, node.id);
+                                }}
+                                title={isGroup ? "Delete Group" : "Delete Ledger"}
+                                className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all border border-rose-100"
+                            >
+                                <Activity size={14} /> {/* Using Activity as a 'Delete' icon or we could use Trash if imported */}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 {/* RENDER CHILDREN IF EXPANDED */}
                 {isGroup && isExpanded && (
                     <div className="flex flex-col">
-                        {filteredChildren.map(child => renderNode(child, 'group', depth + 1))}
-                        {filteredLedgers.map(ledger => renderNode(ledger, 'ledger', depth + 1))}
+                        {filteredChildren.map(child => renderNode({ ...child, nature: child.nature || node.nature }, 'group', depth + 1))}
+                        {filteredLedgers.map(ledger => renderNode({ ...ledger, nature: ledger.nature || node.nature }, 'ledger', depth + 1))}
                     </div>
                 )}
             </div>

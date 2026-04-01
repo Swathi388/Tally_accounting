@@ -83,12 +83,16 @@ const CompanyInfoView = () => {
     setLoading(true);
     setStatus(null);
     try {
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      
       const payload = {
         name: formData.name,
         address: formData.address,
         gstNumber: formData.gstNumber,
         financialYearStart: formData.financialYearStart || '2025-04-01',
         booksBeginningFrom: formData.financialYearEnd || '2026-03-31',
+        userId: user?.id
       };
 
       let res;

@@ -3,7 +3,17 @@ const { Ledger, Group, Transaction, sequelize } = require('../../models');
 // Create a Ledger under a Group
 exports.createLedger = async (req, res) => {
   try {
-    const { companyId, CompanyId, groupId, GroupId, name, openingBalance, openingBalanceType, description, address, gstNumber } = req.body;
+    const { companyId, CompanyId, groupId, GroupId, name, openingBalance, openingBalanceType, description, address, gstNumber, groupName } = req.body;
+    let finalGroupId = groupId || GroupId;
+    
+    // Auto-resolve groupName to GroupId for CRM endpoints
+    if (!finalGroupId && groupName) {
+      const foundGroup = await Group.findOne({ 
+        where: { name: groupName, CompanyId: companyId || CompanyId } 
+      });
+      if (foundGroup) finalGroupId = foundGroup.id;
+    }
+
     const ledger = await Ledger.create({
       name,
       openingBalance: openingBalance || 0,
@@ -12,7 +22,7 @@ exports.createLedger = async (req, res) => {
       description,
       address,
       gstNumber,
-      GroupId: groupId || GroupId,
+      GroupId: finalGroupId,
       CompanyId: companyId || CompanyId
     });
     res.status(201).json(ledger);

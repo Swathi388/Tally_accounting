@@ -28,12 +28,20 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ where: { email } });
+    const { Company } = require('../../models');
+    const user = await User.findOne({ 
+      where: { email },
+      include: [{ model: Company, through: { attributes: [] } }]
+    });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+    res.json({ 
+      token, 
+      user: { id: user.id, email: user.email, role: user.role },
+      companies: user.Companies || [] 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
